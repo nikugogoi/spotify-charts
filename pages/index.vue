@@ -44,7 +44,7 @@ export default {
     Card
   },
 
-  watchQuery: ['type', 'q'],
+  watchQuery: ['type', 'q', 'order_by', 'order_direction', 'filters[time_signature]'],
 
   async asyncData ({ query, error, $axios }) {
     try{

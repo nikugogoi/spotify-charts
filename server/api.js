@@ -21,49 +21,61 @@ sequelize
 router.get('/songs', (req, res) => {
     const limit = req.query.limit || 20
     let offset = 0
-    let where = undefined
+    let filters = undefined
+    if(req.query.filters){
+        filters = Object.entries(req.query.filters)
+        .map(([key, val])=>{
+            return [key, {[Op.or] : JSON.parse(val)}]
+        })
+        .reduce((acc, [key, val])=>{
+            acc[key] = val
+            return acc
+        }, {})
+    }
+    let where = {...filters}
+    console.log(req.query.filters, filters)
+    const order_by = req.query.order_by || 'rank'
+    const order_direction = req.query.order_direction || 'ASC'
     if(req.query.q){
         const search = `%${req.query.q}%`
         if(req.query.type) {
-            where = {
-                [req.query.type]: {
-                    [Op.like]: search
-                }
+            where[req.query.type] = {
+                [Op.like]: search
             }
         } else {
-            where = {
-                [Op.or]: [
-                    {
-                        name: {
-                            [Op.like]: search
-                        }
-                    },
-                    {
-                        artists: {
-                            [Op.like]: search
-                        }
+            where[Op.or] = [
+                {
+                    name: {
+                        [Op.like]: search
                     }
-                ]
-            }
+                },
+                {
+                    artists: {
+                        [Op.like]: search
+                    }
+                }
+            ]
         }
 
     }
-    Song.findAndCountAll({
+    Song.count({
         where
     })
-    .then((data) => {
+    .then((count) => {
         let page = req.query.page || 1;      // page number
-        let pages = Math.ceil(data.count / limit);
+        let pages = Math.ceil(count / limit);
             offset = limit * (page - 1);
         return Song.findAll({
             // attributes: ['id', 'first_name', 'last_name', 'date_of_birth'],
             where,
             limit,
             offset,
-            $sort: { rank: 1 }
+            order: [
+                [order_by, order_direction]
+            ]
         })
         .then((songs) => {
-            res.status(200).json({'result': songs, 'count': data.count, 'pages': pages});
+            res.status(200).json({'result': songs, 'count': count, 'pages': pages});
         });
     })
     .catch(function (error) {
